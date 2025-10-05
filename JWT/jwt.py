@@ -48,13 +48,11 @@ def getAccess_Token(uid: str, password: str) -> Tuple[str, str]:
 
     response = requests.post(url, data=payload, headers=headers)
     data = response.json()
-    print (data)
     return data.get("access_token", "0"), data.get("open_id", "0")
 
 
 def create_jwt(uid: int, password: str) -> Tuple[str, str, str]:
     access_token, open_id = getAccess_Token(uid, password)
-    print(access_token, open_id)
     if access_token == "0":
         raise ValueError("Failed to obtain access token.")
 
