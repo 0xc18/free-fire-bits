@@ -5,7 +5,7 @@ import sys
 from typing import Tuple
 from google.protobuf import json_format, message
 from Crypto.Cipher import AES
-import jwt_pb2
+from .jwt_pb2 import LoginReq, LoginRes
 
 MAIN_KEY = base64.b64decode('WWcmdGMlREV1aDYlWmNeOA==')
 MAIN_IV = base64.b64decode('Nm95WkRyMjJFM3ljaGpNJQ==')
@@ -63,7 +63,7 @@ def create_jwt(uid: int, password: str) -> Tuple[str, str, str]:
       "orign_platform_type": "4"
     })
 
-    encoded_result = json_to_proto(json_data, jwt_pb2.LoginReq())
+    encoded_result = json_to_proto(json_data, LoginReq())
     payload = aes_cbc_encrypt(MAIN_KEY, MAIN_IV, encoded_result)
 
     url = "https://loginbp.ggblueshark.com/MajorLogin"
@@ -80,7 +80,7 @@ def create_jwt(uid: int, password: str) -> Tuple[str, str, str]:
 
     response = requests.post(url, data=payload, headers=headers)
     response_content = response.content
-    message_obj = decode_protobuf(response_content, jwt_pb2.LoginRes)
+    message_obj = decode_protobuf(response_content, LoginRes)
     message_dict = json.loads(json_format.MessageToJson(message_obj))
     token = message_dict.get("token", "0")
     region = message_dict.get("lockRegion", "0")
