@@ -85,6 +85,7 @@ def create_jwt(uid: int, password: str) -> Tuple[str, str, str]:
     token = message_dict.get("token", "0")
     region = message_dict.get("lockRegion", "0")
     serverUrl = message_dict.get("serverUrl", "0")
+    print (message_dict)
 
     if token == "0":
         raise ValueError("Failed to obtain JWT.")
