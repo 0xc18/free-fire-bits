@@ -3,18 +3,14 @@ import json
 import base64
 import sys
 from typing import Tuple
-from google.protobuf import json_format, message
+from google.protobuf.json_format import MessageToDict,ParseDict
 from Crypto.Cipher import AES
 from .jwt_pb2 import LoginReq, LoginRes
 
 MAIN_KEY = base64.b64decode('WWcmdGMlREV1aDYlWmNeOA==')
 MAIN_IV = base64.b64decode('Nm95WkRyMjJFM3ljaGpNJQ==')
 RELEASEVERSION = "OB50"
-USERAGENT = "Dalvik/2.1.0 (Linux; U; Android 13; CPH2095 Build/RKQ1.211119.001)"
 
-def json_to_proto(json_data: str, proto_message: message.Message) -> bytes:
-    json_format.ParseDict(json.loads(json_data), proto_message)
-    return proto_message.SerializeToString()
 
 def pad(text: bytes) -> bytes:
     padding_length = AES.block_size - (len(text) % AES.block_size)
@@ -26,11 +22,6 @@ def aes_cbc_encrypt(key: bytes, iv: bytes, plaintext: bytes) -> bytes:
     padded_plaintext = pad(plaintext)
     return aes.encrypt(padded_plaintext)
 
-def decode_protobuf(encoded_data: bytes, message_type: message.Message) -> message.Message:
-    message_instance = message_type()
-    message_instance.ParseFromString(encoded_data)
-    return message_instance
-
 def getAccess_Token(uid: str, password: str) -> Tuple[str, str]:
     url = "https://ffmconnect.live.gop.garenanow.com/oauth/guest/token/grant"
     payload = (
@@ -40,7 +31,7 @@ def getAccess_Token(uid: str, password: str) -> Tuple[str, str]:
         "&client_id=100067"
     )
     headers = {
-        'User-Agent': USERAGENT,
+        'User-Agent': "Dalvik/2.1.0 (Linux; U; Android 13; CPH2095 Build/RKQ1.211119.001)",
         'Connection': "Keep-Alive",
         'Accept-Encoding': "gzip",
         'Content-Type': "application/x-www-form-urlencoded"
@@ -51,24 +42,24 @@ def getAccess_Token(uid: str, password: str) -> Tuple[str, str]:
     return data.get("access_token", "0"), data.get("open_id", "0")
 
 
-def create_jwt(uid: int, password: str) -> Tuple[str, str, str]:
+def get_auth_data(uid: int, password: str) -> Tuple[str, str, str]:
     access_token, open_id = getAccess_Token(uid, password)
     if access_token == "0":
         raise ValueError("Failed to obtain access token.")
 
-    json_data = json.dumps({
+    data = {
       "open_id": open_id,
       "open_id_type": "4",
       "login_token": access_token,
       "orign_platform_type": "4"
-    })
-
-    encoded_result = json_to_proto(json_data, LoginReq())
-    payload = aes_cbc_encrypt(MAIN_KEY, MAIN_IV, encoded_result)
+    }
+    proto = LoginReq()
+    ParseDict(data,proto)
+    payload = aes_cbc_encrypt(MAIN_KEY, MAIN_IV, proto.SerializeToString())
 
     url = "https://loginbp.ggblueshark.com/MajorLogin"
     headers = {
-        'User-Agent': USERAGENT,
+        'User-Agent': "Dalvik/2.1.0 (Linux; U; Android 13; CPH2095 Build/RKQ1.211119.001)",
         'Connection': "Keep-Alive",
         'Accept-Encoding': "gzip",
         'Content-Type': "application/octet-stream",
@@ -79,36 +70,14 @@ def create_jwt(uid: int, password: str) -> Tuple[str, str, str]:
     }
 
     response = requests.post(url, data=payload, headers=headers)
-    response_content = response.content
-    message_obj = decode_protobuf(response_content, LoginRes)
-    message_dict = json.loads(json_format.MessageToJson(message_obj))
-    token = message_dict.get("token", "0")
-    region = message_dict.get("lockRegion", "0")
-    serverUrl = message_dict.get("serverUrl", "0")
-    print (message_dict)
-
-    if token == "0":
-        raise ValueError("Failed to obtain JWT.")
-
-    return token, region, serverUrl
-
-def main():
-    print("\n--- Free Fire JWT Generator ---")
-
-    uid = "4202089370"
-    password = "BDB6E27AB0A34D966E241EDDD7E5C177B9A3D94CD316ED8E0660B6F50C3B2BE3"
-
-    try:
-        print("Generating JWT...")
-        token, lock_region, server_url = create_jwt(uid, password)
-        print("--- JWT Created Successfully ---")
-        print(f"Token: {token}")
-        print(f"Region: {lock_region}")
-        print(f"Server URL: {server_url}")
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
+    proto = LoginRes()
+    proto.ParseFromString(response.content)
+    message_dict = data = MessageToDict(proto, preserving_proto_field_name=True)
+    message_dict['open_id'] = open_id
+    message_dict['access_token'] = access_token
+    return message_dict
 
 if __name__ == "__main__":
-    main()
+    uid = "4202089370"
+    password = "BDB6E27AB0A34D966E241EDDD7E5C177B9A3D94CD316ED8E0660B6F50C3B2BE3"
+    print(json.dumps(get_auth_data(uid,password),indent=4))
